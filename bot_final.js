@@ -23,7 +23,16 @@ const PALABRAS_CLAVE = [
     'retiren cmo',
     'sofclofe'
 ];
+const http = require('http');
 
+const PORT = process.env.PORT || 3000;
+
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Bot WhatsApp activo');
+}).listen(PORT, () => {
+  console.log(`🌐 HTTP keep-alive escuchando en puerto ${PORT}`);
+});
 // ───────────────── BASE PATH (CRÍTICO PARA EXE) ─────────────────
 const BASE_PATH = path.join(
     process.env.APPDATA || process.cwd(),
