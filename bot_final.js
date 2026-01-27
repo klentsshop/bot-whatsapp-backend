@@ -27,7 +27,7 @@ const PALABRAS_CLAVE = [
     'sofclofe'
 ];
 
-const PORT = process.env.PORT || 3000;
+const PORT = 8080;
 http.createServer((req, res) => {
     if (req.url === '/qr') {
         if (!lastQrDataUrl) {
