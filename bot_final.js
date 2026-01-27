@@ -81,15 +81,13 @@ const client = new Client({
         dataPath: SESSION_PATH
     }),
     puppeteer: {
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
         headless: 'new',
-        handleSIGINT: false,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
-            '--disable-software-rasterizer',
             '--single-process',
             '--no-zygote'
         ]
@@ -319,4 +317,15 @@ require('./slaMonitor')(client, PATH_STORE);
 
 // ───────────────── START ─────────────────
 
+process.on('unhandledRejection', (err) => {
+    console.error('❌ UNHANDLED REJECTION:', err);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('❌ UNCAUGHT EXCEPTION:', err);
+});
+
 client.initialize();
+setInterval(() => {
+    // Mantiene vivo el proceso en Railway
+}, 1000 * 60 * 5);
