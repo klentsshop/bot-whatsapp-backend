@@ -1,11 +1,14 @@
+const QRCode = require('qrcode');
+const http = require('http');
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
 
 // ───────────────── CONFIGURACIÓN ─────────────────
 const ID_TECNICOS_LAB = '120363424034037857@g.us';
 const ID_TABASCO_LAB = '120363421788879642@g.us';
+
+let lastQrDataUrl = null;
 
 // ── RUTEO DEFINITIVO DE GRUPOS ──
 const RUTAS_INTERMEDIARIOS = {
@@ -23,16 +26,38 @@ const PALABRAS_CLAVE = [
     'retiren cmo',
     'sofclofe'
 ];
-const http = require('http');
 
 const PORT = process.env.PORT || 3000;
-
 http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Bot WhatsApp activo');
+    if (req.url === '/qr') {
+        if (!lastQrDataUrl) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            return res.end('QR no disponible aún');
+        }
+
+        const img = lastQrDataUrl.replace(/^data:image\/png;base64,/, '');
+        const buffer = Buffer.from(img, 'base64');
+
+        res.writeHead(200, {
+            'Content-Type': 'image/png',
+            'Content-Length': buffer.length
+        });
+        return res.end(buffer);
+    }
+
+    if (req.url === '/status') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({
+            ready: !!client.info
+        }));
+    }
+
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot WhatsApp activo');
 }).listen(PORT, () => {
-  console.log(`🌐 HTTP keep-alive escuchando en puerto ${PORT}`);
+    console.log(`🌐 Servidor web activo en puerto ${PORT}`);
 });
+
 // ───────────────── BASE PATH (CRÍTICO PARA EXE) ─────────────────
 const BASE_PATH = path.join(
     process.env.APPDATA || process.cwd(),
@@ -167,7 +192,14 @@ async function responderTecnico(datos) {
 }
 
 // ───────────────── QR Y READY ─────────────────
-client.on('qr', qr => qrcode.generate(qr, { small: true }));
+client.on('qr', async (qr) => {
+    try {
+        lastQrDataUrl = await QRCode.toDataURL(qr);
+        console.log('📲 QR generado y disponible vía web');
+    } catch (err) {
+        console.error('❌ Error generando QR', err);
+    }
+});
 client.on('ready', () => console.log('🚀 BOT FINAL - LISTO PARA PRODUCCIÓN'));
 
 // ───────────────── MENSAJES ─────────────────
@@ -283,4 +315,5 @@ process.on('unhandledRejection', (err) => {
 require('./slaMonitor')(client, PATH_STORE);
 
 // ───────────────── START ─────────────────
+
 client.initialize();
