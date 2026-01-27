@@ -49,10 +49,7 @@ const PATH_STORE = path.join(
 );
 
 // ───────────────── CLIENTE ─────────────────
-const SESSION_PATH = path.join(
-    BASE_PATH,
-    'session'
-);
+const SESSION_PATH = '/data/session';
 
 const client = new Client({
     authStrategy: new LocalAuth({
