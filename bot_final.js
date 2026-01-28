@@ -14,9 +14,7 @@ let lastQrDataUrl = null;
 
 // ── RUTEO DEFINITIVO DE GRUPOS ──
 const RUTAS_INTERMEDIARIOS = {
-    '120363401821218041@g.us': '120363342030232133@g.us',
-    '120363318168278146@g.us': '120363268978891285@g.us',
-    '120363401456951971@g.us': '120363268978891285@g.us'
+    '120363424034037857@g.us': '120363421788879642@g.us'
 };
 
 console.log('🧭 [CONFIG] Rutas:', Object.keys(RUTAS_INTERMEDIARIOS));
@@ -204,11 +202,11 @@ client.on('ready', () => {
 });
 
 // ───────────────── MENSAJES ─────────────────
-client.on('message_create', async (msg) => {
+client.on('message', async (msg) => {
     console.log('📩 [MSG] Recibido');
 
     // Nunca procesar mensajes enviados por el bot
-    if (msg.fromMe && !msg.hasQuotedMsg) return;
+    if (msg.fromMe) return;
 
     try {
         const chat = await msg.getChat();
