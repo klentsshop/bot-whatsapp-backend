@@ -73,6 +73,22 @@ console.log('📁 [PATH] Store:', PATH_STORE);
 
 // ───────────────── CLIENTE ─────────────────
 console.log('🤖 [CLIENT] Creando cliente WhatsApp');
+const CHROME_LOCKS = [
+  '/data/session/SingletonLock',
+  '/data/session/SingletonCookie',
+  '/data/session/SingletonSocket'
+];
+
+CHROME_LOCKS.forEach((lock) => {
+  if (fs.existsSync(lock)) {
+    try {
+      fs.unlinkSync(lock);
+      console.log(`🧹 [CHROME] Lock eliminado: ${lock}`);
+    } catch (e) {
+      console.log(`⚠️ [CHROME] No se pudo borrar lock: ${lock}`);
+    }
+  }
+});
 
 const client = new Client({
   authStrategy: new LocalAuth({
