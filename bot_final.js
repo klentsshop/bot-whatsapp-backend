@@ -82,15 +82,16 @@ const client = new Client({
     clientId: 'milenium-bot'
   }),
   puppeteer: {
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu'
-    ]
-  }
+  executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+  headless: true,
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--user-data-dir=/tmp/chrome-profile'
+  ]
+}
 });
 // ───────────────── STORE PERSISTENTE ─────────────────
 let store = { porMensaje: {}, porCta: {} };
