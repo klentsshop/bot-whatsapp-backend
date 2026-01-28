@@ -4,6 +4,8 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const fs = require('fs');
 const path = require('path');
 
+console.log('🟢 [BOOT] Archivo iniciado');
+
 // ───────────────── CONFIGURACIÓN ─────────────────
 const ID_TECNICOS_LAB = '120363424034037857@g.us';
 const ID_TABASCO_LAB = '120363421788879642@g.us';
@@ -17,6 +19,8 @@ const RUTAS_INTERMEDIARIOS = {
     '120363401456951971@g.us': '120363268978891285@g.us'
 };
 
+console.log('🧭 [CONFIG] Rutas:', Object.keys(RUTAS_INTERMEDIARIOS));
+
 const PALABRAS_CLAVE = [
     'reprogramacion',
     'reprogramación',
@@ -27,6 +31,7 @@ const PALABRAS_CLAVE = [
     'sofclofe'
 ];
 
+// ───────────────── SERVIDOR WEB ─────────────────
 const PORT = 8080;
 http.createServer((req, res) => {
     if (req.url === '/qr') {
@@ -55,43 +60,37 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Bot WhatsApp activo');
 }).listen(PORT, () => {
-    console.log(`🌐 Servidor web activo en puerto ${PORT}`);
+    console.log(`🌐 [HTTP] Servidor web activo en puerto ${PORT}`);
 });
 
-// ───────────────── BASE PATH (CRÍTICO PARA EXE) ─────────────────
-const BASE_PATH = path.join(
-    process.env.APPDATA || process.cwd(),
-    'BotWhatsAppNicol'
-);
+// ───────────────── BASE PATH (CORREGIDO PARA RAILWAY) ─────────────────
+const BASE_PATH = '/data';
 
 if (!fs.existsSync(BASE_PATH)) {
     fs.mkdirSync(BASE_PATH, { recursive: true });
 }
 
-const PATH_STORE = path.join(
-    BASE_PATH,
-    'mensajes_store.json'
-);
+const PATH_STORE = path.join(BASE_PATH, 'mensajes_store.json');
+console.log('📁 [PATH] Store:', PATH_STORE);
 
 // ───────────────── CLIENTE ─────────────────
-const SESSION_PATH = '/data/session';
+console.log('🤖 [CLIENT] Creando cliente WhatsApp');
 
 const client = new Client({
-  authStrategy: new LocalAuth({
-    dataPath: '/data/session'
-  }),
-  puppeteer: {
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu'
-    ]
-  }
+    authStrategy: new LocalAuth({
+        dataPath: '/data/session'
+    }),
+    puppeteer: {
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu'
+        ]
+    }
 });
-
 
 // ───────────────── STORE PERSISTENTE ─────────────────
 let store = { porMensaje: {}, porCta: {} };
@@ -100,14 +99,19 @@ function cargarStore() {
     try {
         if (fs.existsSync(PATH_STORE)) {
             store = JSON.parse(fs.readFileSync(PATH_STORE));
+            console.log('📦 [STORE] Cargado');
+        } else {
+            console.log('📦 [STORE] No existe, inicial vacío');
         }
-    } catch {
+    } catch (err) {
+        console.error('❌ [STORE] Error cargando:', err.message);
         store = { porMensaje: {}, porCta: {} };
     }
 }
 
 function guardarStore() {
     fs.writeFileSync(PATH_STORE, JSON.stringify(store, null, 2));
+    console.log('💾 [STORE] Guardado');
 }
 
 cargarStore();
@@ -186,37 +190,37 @@ async function responderTecnico(datos) {
     await client.sendMessage(datos.grupo, formato, {
         sendSeen: false
     });
-
-    // ⚠️ NO se limpia aquí
-    // El SLA depende de este registro
 }
 
 // ───────────────── QR Y READY ─────────────────
 client.on('qr', async (qr) => {
-    try {
-        lastQrDataUrl = await QRCode.toDataURL(qr);
-        console.log('📲 QR generado y disponible vía web');
-    } catch (err) {
-        console.error('❌ Error generando QR', err);
-    }
+    lastQrDataUrl = await QRCode.toDataURL(qr);
+    console.log('📲 [QR] Generado');
 });
-client.on('ready', () => console.log('🚀 BOT FINAL - LISTO PARA PRODUCCIÓN'));
+
+client.on('ready', () => {
+    console.log('🚀 BOT FINAL - LISTO PARA PRODUCCIÓN');
+});
 
 // ───────────────── MENSAJES ─────────────────
 client.on('message_create', async (msg) => {
+    console.log('📩 [MSG] Recibido');
+
     if (msg.fromMe) return;
 
     try {
         const chat = await msg.getChat();
         const origen = chat.id._serialized;
+        console.log('📍 [MSG] Grupo:', origen);
 
-        const texto = msg.hasMedia
-            ? (msg.caption || '')
-            : (msg.body || '');
+        const texto = msg.hasMedia ? (msg.caption || '') : (msg.body || '');
+        console.log('📝 [MSG] Texto:', texto);
 
         if (RUTAS_INTERMEDIARIOS[origen]) {
+            console.log('➡️ [RUTEO] Grupo técnico');
 
             if (!detectarPlantilla(texto, msg)) {
+                console.log('❌ [PLANTILLA] Inválida');
                 await msg.reply(
                     '⚠️ Solicitud incompleta o no explícita.\n' +
                     'Por favor valida la plantilla y vuelve a enviar.'
@@ -224,7 +228,10 @@ client.on('message_create', async (msg) => {
                 return;
             }
 
+            console.log('✅ [PLANTILLA] Válida');
+
             const grupoIntermediario = RUTAS_INTERMEDIARIOS[origen];
+            console.log('🎯 [RUTEO] Enviando a:', grupoIntermediario);
 
             const autorId = msg.author || msg.from;
             const contacto = await client.getContactById(autorId);
@@ -240,7 +247,6 @@ client.on('message_create', async (msg) => {
 
             if (msg.hasMedia) {
                 const media = await msg.downloadMedia();
-
                 enviado = await client.sendMessage(
                     grupoIntermediario,
                     media,
@@ -286,9 +292,7 @@ client.on('message_create', async (msg) => {
         }
 
     } catch (err) {
-        if (!err.message.includes('markedUnread')) {
-            console.error(err.message);
-        }
+        console.error('❌ [MSG ERROR]', err.message);
     }
 });
 
@@ -309,14 +313,6 @@ client.on('message_reaction', async (reaction) => {
 // ───────────────── PROTECCIÓN BUGS ─────────────────
 process.on('unhandledRejection', (err) => {
     if (err?.message?.includes('markedUnread')) return;
-});
-
-// ───────────────── SLA MONITOR ─────────────────
-require('./slaMonitor')(client, PATH_STORE);
-
-// ───────────────── START ─────────────────
-
-process.on('unhandledRejection', (err) => {
     console.error('❌ UNHANDLED REJECTION:', err);
 });
 
@@ -324,7 +320,17 @@ process.on('uncaughtException', (err) => {
     console.error('❌ UNCAUGHT EXCEPTION:', err);
 });
 
+// ───────────────── SLA MONITOR ─────────────────
+require('./slaMonitor')(client, PATH_STORE);
+
+// ───────────────── START ─────────────────
+console.log('🟢 [START] Inicializando cliente WhatsApp');
 client.initialize();
+
+// ───────────────── HEALTHCHECK ─────────────────
 setInterval(() => {
-    // Mantiene vivo el proceso en Railway
-}, 1000 * 60 * 5);
+    console.log(client.info
+        ? '✅ [HEALTH] WhatsApp conectado'
+        : '⏳ [HEALTH] WhatsApp no conectado'
+    );
+}, 1000 * 30);
