@@ -77,19 +77,20 @@ console.log('📁 [PATH] Store:', PATH_STORE);
 console.log('🤖 [CLIENT] Creando cliente WhatsApp');
 
 const client = new Client({
-    authStrategy: new LocalAuth({
-        dataPath: '/data/session'
-    }),
-    puppeteer: {
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu'
-        ]
-    }
+  authStrategy: new LocalAuth({
+    dataPath: '/data/session'
+  }),
+  puppeteer: {
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+    headless: true,
+    userDataDir: `/tmp/puppeteer_${Date.now()}`, // 🔥 FIX
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu'
+    ]
+  }
 });
 
 // ───────────────── STORE PERSISTENTE ─────────────────
