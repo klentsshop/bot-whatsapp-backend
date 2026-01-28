@@ -83,7 +83,6 @@ const client = new Client({
   puppeteer: {
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     headless: true,
-    userDataDir: `/tmp/puppeteer_${Date.now()}`, // 🔥 FIX
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -92,7 +91,6 @@ const client = new Client({
     ]
   }
 });
-
 // ───────────────── STORE PERSISTENTE ─────────────────
 let store = { porMensaje: {}, porCta: {} };
 
