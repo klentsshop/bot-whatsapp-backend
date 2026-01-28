@@ -77,22 +77,21 @@ const PATH_STORE = path.join(
 const SESSION_PATH = '/data/session';
 
 const client = new Client({
-    authStrategy: new LocalAuth({
-        dataPath: SESSION_PATH
-    }),
-    puppeteer: {
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-        headless: 'new',
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--single-process',
-            '--no-zygote'
-        ]
-    }
+  authStrategy: new LocalAuth({
+    dataPath: '/data/session'
+  }),
+  puppeteer: {
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu'
+    ]
+  }
 });
+
 
 // ───────────────── STORE PERSISTENTE ─────────────────
 let store = { porMensaje: {}, porCta: {} };
