@@ -205,6 +205,7 @@ client.on('ready', () => {
 client.on('message_create', async (msg) => {
     console.log('📩 [MSG] Recibido');
 
+    // Nunca procesar mensajes enviados por el bot
     if (msg.fromMe) return;
 
     try {
@@ -212,13 +213,27 @@ client.on('message_create', async (msg) => {
         const origen = chat.id._serialized;
         console.log('📍 [MSG] Grupo:', origen);
 
-        const texto = msg.hasMedia ? (msg.caption || '') : (msg.body || '');
-        console.log('📝 [MSG] Texto:', texto);
+        // ── TEXTO ORIGINAL (SE USA PARA REENVÍO) ──
+        const textoOriginal = msg.hasMedia
+            ? (msg.caption || '')
+            : (msg.body || '');
 
+        console.log('📝 [MSG] Texto original:', textoOriginal);
+
+        // ── TEXTO NORMALIZADO (SOLO PARA VALIDACIÓN) ──
+        const textoNormalizado = textoOriginal
+            .replace(/\u00A0/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        console.log('🧹 [MSG] Texto normalizado:', textoNormalizado);
+
+        // ───────────────── RUTEO DESDE TÉCNICOS ─────────────────
         if (RUTAS_INTERMEDIARIOS[origen]) {
             console.log('➡️ [RUTEO] Grupo técnico');
 
-            if (!detectarPlantilla(texto, msg)) {
+            // ❌ Validación estricta: UN SOLO MENSAJE
+            if (!detectarPlantilla(textoNormalizado, msg)) {
                 console.log('❌ [PLANTILLA] Inválida');
                 await msg.reply(
                     '⚠️ Solicitud incompleta o no explícita.\n' +
@@ -237,8 +252,8 @@ client.on('message_create', async (msg) => {
             const nombre = contacto.pushname || 'Técnico';
 
             const matchCta =
-                texto.match(/CTA.*[:\s](\d{6,})/i) ||
-                texto.match(/(\d{7,10})/);
+                textoNormalizado.match(/CTA.*[:\s](\d{6,})/i) ||
+                textoNormalizado.match(/(\d{7,10})/);
 
             const cta = matchCta ? (matchCta[1] || matchCta[0]) : null;
 
@@ -250,14 +265,14 @@ client.on('message_create', async (msg) => {
                     grupoIntermediario,
                     media,
                     {
-                        caption: `${texto}\n\n_me ayudas con esto porfavor_`,
+                        caption: `${textoOriginal}\n\n_me ayudas con esto porfavor_`,
                         sendSeen: false
                     }
                 );
             } else {
                 enviado = await client.sendMessage(
                     grupoIntermediario,
-                    `${texto}\n\n_me ayudas con esto porfavor_`,
+                    `${textoOriginal}\n\n_me ayudas con esto porfavor_`,
                     { sendSeen: false }
                 );
             }
@@ -280,9 +295,16 @@ client.on('message_create', async (msg) => {
             await responderTecnico(datos);
         }
 
+        // ───────────────── RESPUESTAS DESDE MILENIUM ─────────────────
         if (!RUTAS_INTERMEDIARIOS[origen]) {
-            const quoted = msg.hasQuotedMsg ? await msg.getQuotedMessage() : null;
-            const datos = resolverReferencia(quoted?.id._serialized, texto);
+            const quoted = msg.hasQuotedMsg
+                ? await msg.getQuotedMessage()
+                : null;
+
+            const datos = resolverReferencia(
+                quoted?.id._serialized,
+                textoNormalizado
+            );
 
             if (datos && datos.atendido === false) {
                 datos.atendido = true;
@@ -294,6 +316,7 @@ client.on('message_create', async (msg) => {
         console.error('❌ [MSG ERROR]', err.message);
     }
 });
+
 
 // ───────────────── REACCIONES ─────────────────
 client.on('message_reaction', async (reaction) => {
