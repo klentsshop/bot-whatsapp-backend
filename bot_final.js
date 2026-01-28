@@ -217,25 +217,23 @@ client.on('ready', () => {
 });
 
 // ───────────────── MENSAJES ─────────────────
-client.on('message', async (msg) => {
+client.on('message_create', async (msg) => {
     console.log('📩 [MSG] Recibido');
 
-    // Nunca procesar mensajes enviados por el bot
-    if (msg.fromMe) return;
+    // ❌ Ignorar mensajes enviados por el bot (pero NO quoted replies)
+    if (msg.fromMe && !msg.hasQuotedMsg) return;
 
     try {
         const chat = await msg.getChat();
         const origen = chat.id._serialized;
         console.log('📍 [MSG] Grupo:', origen);
 
-        // ── TEXTO ORIGINAL (SE USA PARA REENVÍO) ──
         const textoOriginal = msg.hasMedia
             ? (msg.caption || '')
             : (msg.body || '');
 
         console.log('📝 [MSG] Texto original:', textoOriginal);
 
-        // ── TEXTO NORMALIZADO (SOLO PARA VALIDACIÓN) ──
         const textoNormalizado = textoOriginal
             .replace(/\u00A0/g, ' ')
             .replace(/\s+/g, ' ')
@@ -243,11 +241,10 @@ client.on('message', async (msg) => {
 
         console.log('🧹 [MSG] Texto normalizado:', textoNormalizado);
 
-        // ───────────────── RUTEO DESDE TÉCNICOS ─────────────────
+        // ───────────── DESDE TÉCNICOS ─────────────
         if (RUTAS_INTERMEDIARIOS[origen]) {
             console.log('➡️ [RUTEO] Grupo técnico');
 
-            // ❌ Validación estricta: UN SOLO MENSAJE
             if (!detectarPlantilla(textoNormalizado, msg)) {
                 console.log('❌ [PLANTILLA] Inválida');
                 await msg.reply(
@@ -276,14 +273,10 @@ client.on('message', async (msg) => {
 
             if (msg.hasMedia) {
                 const media = await msg.downloadMedia();
-                enviado = await client.sendMessage(
-                    grupoIntermediario,
-                    media,
-                    {
-                        caption: `${textoOriginal}\n\n_me ayudas con esto porfavor_`,
-                        sendSeen: false
-                    }
-                );
+                enviado = await client.sendMessage(grupoIntermediario, media, {
+                    caption: `${textoOriginal}\n\n_me ayudas con esto porfavor_`,
+                    sendSeen: false
+                });
             } else {
                 enviado = await client.sendMessage(
                     grupoIntermediario,
@@ -310,7 +303,7 @@ client.on('message', async (msg) => {
             await responderTecnico(datos);
         }
 
-        // ───────────────── RESPUESTAS DESDE MILENIUM ─────────────────
+        // ───────────── RESPUESTAS DESDE MILENIUM ─────────────
         if (!RUTAS_INTERMEDIARIOS[origen]) {
             const quoted = msg.hasQuotedMsg
                 ? await msg.getQuotedMessage()
@@ -328,9 +321,10 @@ client.on('message', async (msg) => {
         }
 
     } catch (err) {
-        console.error('❌ [MSG ERROR]', err.message);
+        console.error('❌ [MSG ERROR]', err);
     }
 });
+
 
 
 // ───────────────── REACCIONES ─────────────────
