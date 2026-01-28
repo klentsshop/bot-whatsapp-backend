@@ -207,7 +207,7 @@ client.on('message_create', async (msg) => {
     console.log('📩 [MSG] Recibido');
 
     // Nunca procesar mensajes enviados por el bot
-    if (msg.fromMe) return;
+    if (msg.fromMe && !msg.hasQuotedMsg) return;
 
     try {
         const chat = await msg.getChat();
