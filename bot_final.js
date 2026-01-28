@@ -61,7 +61,7 @@ http.createServer((req, res) => {
     console.log(`🌐 [HTTP] Servidor web activo en puerto ${PORT}`);
 });
 
-// ───────────────── BASE PATH ─────────────────
+// ───────────────── BASE PATH (CORREGIDO PARA RAILWAY) ─────────────────
 const BASE_PATH = '/data';
 
 if (!fs.existsSync(BASE_PATH)) {
@@ -75,22 +75,21 @@ console.log('📁 [PATH] Store:', PATH_STORE);
 console.log('🤖 [CLIENT] Creando cliente WhatsApp');
 
 const client = new Client({
-    authStrategy: new LocalAuth({
-        dataPath: '/data/session',
-        clientId: 'milenium-bot'
-    }),
-    puppeteer: {
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu'
-        ]
-    }
+  authStrategy: new LocalAuth({
+    dataPath: '/data/session',
+    clientId: 'milenium-bot'
+  }),
+  puppeteer: {
+  executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+  headless: true,
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu'
+  ]
+}
 });
-
 // ───────────────── STORE PERSISTENTE ─────────────────
 let store = { porMensaje: {}, porCta: {} };
 
@@ -115,7 +114,7 @@ function guardarStore() {
 
 cargarStore();
 
-// ───────────────── VALIDADORES ─────────────────
+// ───────────────── VALIDADORES DE PLANTILLAS ─────────────────
 function validarSolicitudGeneral(texto) {
     return /(cta|#\s*cta)/i.test(texto) &&
            /(ot|lls)/i.test(texto) &&
@@ -160,27 +159,35 @@ function validarNoDeseaServicio(texto) {
 }
 
 function detectarPlantilla(texto, msg) {
-    return validarReprogramacion(texto) ||
-           validarNoContacto(texto, msg) ||
-           validarNoDeseaServicio(texto) ||
-           validarDatosErrados(texto) ||
-           validarSolicitudGeneral(texto);
+    if (validarReprogramacion(texto)) return true;
+    if (validarNoContacto(texto, msg)) return true;
+    if (validarNoDeseaServicio(texto)) return true;
+    if (validarDatosErrados(texto)) return true;
+    if (validarSolicitudGeneral(texto)) return true;
+    return false;
 }
 
 // ───────────────── MOTOR ÚNICO ─────────────────
 function resolverReferencia(msgId, texto) {
-    if (msgId && store.porMensaje[msgId]) return store.porMensaje[msgId];
+    if (msgId && store.porMensaje[msgId]) {
+        return store.porMensaje[msgId];
+    }
 
     const match = texto?.match(/(\d{7,10})/);
-    if (match && store.porCta[match[0]]) return store.porCta[match[0]];
+    if (match && store.porCta[match[0]]) {
+        return store.porCta[match[0]];
+    }
 
     return null;
 }
 
-// ───────────────── RESPUESTA ─────────────────
+// ───────────────── RESPUESTA ÚNICA ─────────────────
 async function responderTecnico(datos) {
     const formato = `✅ *RESPUESTA PARA @${datos.nombre.toUpperCase()}:*\n\nESCALADO ⚠️`;
-    await client.sendMessage(datos.grupo, formato, { sendSeen: false });
+
+    await client.sendMessage(datos.grupo, formato, {
+        sendSeen: false
+    });
 }
 
 // ───────────────── QR Y READY ─────────────────
@@ -195,27 +202,59 @@ client.on('ready', () => {
 
 // ───────────────── MENSAJES ─────────────────
 client.on('message_create', async (msg) => {
+    console.log('📩 [MSG] Recibido');
+
+    // ❌ Ignorar mensajes enviados por el bot (pero NO quoted replies)
     if (msg.fromMe && !msg.hasQuotedMsg) return;
 
     try {
         const chat = await msg.getChat();
         const origen = chat.id._serialized;
+        console.log('📍 [MSG] Grupo:', origen);
 
-        const textoOriginal = msg.hasMedia ? (msg.caption || '') : (msg.body || '');
-        const textoNormalizado = textoOriginal.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+        const textoOriginal = msg.hasMedia
+            ? (msg.caption || '')
+            : (msg.body || '');
 
+        console.log('📝 [MSG] Texto original:', textoOriginal);
+
+        const textoNormalizado = textoOriginal
+            .replace(/\u00A0/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        console.log('🧹 [MSG] Texto normalizado:', textoNormalizado);
+
+        // ───────────── DESDE TÉCNICOS ─────────────
         if (RUTAS_INTERMEDIARIOS[origen]) {
+            console.log('➡️ [RUTEO] Grupo técnico');
+
             if (!detectarPlantilla(textoNormalizado, msg)) {
-                await msg.reply('⚠️ Solicitud incompleta o no explícita.');
+                console.log('❌ [PLANTILLA] Inválida');
+                await msg.reply(
+                    '⚠️ Solicitud incompleta o no explícita.\n' +
+                    'Por favor valida la plantilla y vuelve a enviar.'
+                );
                 return;
             }
 
+            console.log('✅ [PLANTILLA] Válida');
+
             const grupoIntermediario = RUTAS_INTERMEDIARIOS[origen];
+            console.log('🎯 [RUTEO] Enviando a:', grupoIntermediario);
+
             const autorId = msg.author || msg.from;
             const contacto = await client.getContactById(autorId);
             const nombre = contacto.pushname || 'Técnico';
 
+            const matchCta =
+                textoNormalizado.match(/CTA.*[:\s](\d{6,})/i) ||
+                textoNormalizado.match(/(\d{7,10})/);
+
+            const cta = matchCta ? (matchCta[1] || matchCta[0]) : null;
+
             let enviado;
+
             if (msg.hasMedia) {
                 const media = await msg.downloadMedia();
                 enviado = await client.sendMessage(grupoIntermediario, media, {
@@ -230,18 +269,39 @@ client.on('message_create', async (msg) => {
                 );
             }
 
-            store.porMensaje[enviado.id._serialized] = {
+            const datos = {
                 grupo: origen,
                 autor: autorId,
                 nombre,
+                cta,
                 grupoIntermediario,
                 timestampEnvio: Date.now(),
                 recordatoriosEnviados: 0,
                 atendido: false
             };
 
+            store.porMensaje[enviado.id._serialized] = datos;
+            if (cta) store.porCta[cta] = datos;
+
             guardarStore();
-            await responderTecnico(store.porMensaje[enviado.id._serialized]);
+            await responderTecnico(datos);
+        }
+
+        // ───────────── RESPUESTAS DESDE MILENIUM ─────────────
+        if (!RUTAS_INTERMEDIARIOS[origen]) {
+            const quoted = msg.hasQuotedMsg
+                ? await msg.getQuotedMessage()
+                : null;
+
+            const datos = resolverReferencia(
+                quoted?.id._serialized,
+                textoNormalizado
+            );
+
+            if (datos && datos.atendido === false) {
+                datos.atendido = true;
+                guardarStore();
+            }
         }
 
     } catch (err) {
@@ -249,7 +309,33 @@ client.on('message_create', async (msg) => {
     }
 });
 
-// ───────────────── SLA ─────────────────
+
+
+// ───────────────── REACCIONES ─────────────────
+client.on('message_reaction', async (reaction) => {
+    try {
+        const mensajeId = reaction.msgId?._serialized;
+        if (!mensajeId) return;
+
+        const datos = store.porMensaje[mensajeId];
+        if (datos && datos.atendido === false) {
+            datos.atendido = true;
+            guardarStore();
+        }
+    } catch {}
+});
+
+// ───────────────── PROTECCIÓN BUGS ─────────────────
+process.on('unhandledRejection', (err) => {
+    if (err?.message?.includes('markedUnread')) return;
+    console.error('❌ UNHANDLED REJECTION:', err);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('❌ UNCAUGHT EXCEPTION:', err);
+});
+
+// ───────────────── SLA MONITOR ─────────────────
 require('./slaMonitor')(client, PATH_STORE);
 
 // ───────────────── START ─────────────────
@@ -262,4 +348,4 @@ setInterval(() => {
         ? '✅ [HEALTH] WhatsApp conectado'
         : '⏳ [HEALTH] WhatsApp no conectado'
     );
-}, 30000);
+}, 1000 * 30);
