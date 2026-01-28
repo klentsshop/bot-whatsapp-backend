@@ -78,7 +78,8 @@ console.log('🤖 [CLIENT] Creando cliente WhatsApp');
 
 const client = new Client({
   authStrategy: new LocalAuth({
-    dataPath: '/data/session'
+    dataPath: '/data/session',
+    clientId: 'milenium-bot'
   }),
   puppeteer: {
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
