@@ -232,30 +232,16 @@ client.on('authenticated', () => {
 
 
 // ───────────────── MENSAJES ─────────────────
-client.on('message', async (msg) => {
-    console.log('📩 [MSG] Recibido');
-
-    // ❌ Ignorar mensajes enviados por el bot (pero NO quoted replies)
-   if (msg.fromMe) return;
-
-    try {
-        const chat = await msg.getChat();
-        const origen = chat.id._serialized;
-        console.log('📍 [MSG] Grupo:', origen);
-
-        const textoOriginal = msg.hasMedia
-            ? (msg.caption || '')
-            : (msg.body || '');
-
-        console.log('📝 [MSG] Texto original:', textoOriginal);
-
-        const textoNormalizado = textoOriginal
-            .replace(/\u00A0/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        console.log('🧹 [MSG] Texto normalizado:', textoNormalizado);
-
+client.on('message_create', (msg) => {
+    console.log('🧪 [TEST] message_create disparado');
+    console.log({
+        from: msg.from,
+        author: msg.author,
+        fromMe: msg.fromMe,
+        body: msg.body,
+        hasMedia: msg.hasMedia
+    });
+});
         // ───────────── DESDE TÉCNICOS ─────────────
         if (RUTAS_INTERMEDIARIOS[origen]) {
             console.log('➡️ [RUTEO] Grupo técnico');
