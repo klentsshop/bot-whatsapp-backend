@@ -98,17 +98,14 @@ client = new Client({
     dataPath: '/data/session',
     clientId: 'milenium-bot'
   }),
-  puppeteer: {
-    executablePath: '/usr/bin/google-chrome',
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--single-process',
-      '--no-zygote'
-    ]
+puppeteer: {
+  executablePath: '/usr/bin/chromium-browser',
+  headless: true,
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage'
+  ]
   }
 });
 client.on('loading_screen', (percent, message) => {
