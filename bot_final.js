@@ -92,20 +92,15 @@ const PATH_STORE = path.join(BASE_PATH, 'mensajes_store.json');
 console.log('📁 [PATH] Store:', PATH_STORE);
 // ───────────────── CLIENTE ─────────────────
 console.log('🤖 [CLIENT] Creando cliente WhatsApp');
-
 client = new Client({
-  authStrategy: new LocalAuth({
-    dataPath: '/data/session',
-    clientId: 'milenium-bot'
-  }),
-puppeteer: {
-  executablePath: '/usr/bin/chromium-browser',
-  headless: true,
-  args: [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage'
-  ]
+  puppeteer: {
+    executablePath: '/usr/bin/chromium-browser',
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage'
+    ]
   }
 });
 client.on('loading_screen', (percent, message) => {
@@ -233,72 +228,7 @@ client.on('authenticated', () => {
 
 // ───────────────── MENSAJES ─────────────────
 // ───────────── RECEPCIÓN DE MENSAJES REAL ─────────────
-client.on('message', async (msg) => {
-    if (msg.fromMe) return;
 
-    try {
-        const chat = await msg.getChat();
-        const origen = chat.id._serialized;
-
-        const textoOriginal = msg.hasMedia
-            ? (msg.caption || '')
-            : (msg.body || '');
-
-        const textoNormalizado = textoOriginal
-            .replace(/\u00A0/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        console.log('📩 [MSG] Recibido:', {
-            grupo: origen,
-            texto: textoNormalizado,
-            hasMedia: msg.hasMedia,
-            author: msg.author
-        });
-
-        // ───────────── DESDE TÉCNICOS ─────────────
-        if (RUTAS_INTERMEDIARIOS[origen]) {
-            console.log('➡️ [RUTEO] Grupo técnico');
-
-            if (!detectarPlantilla(textoNormalizado, msg)) {
-                console.log('❌ [PLANTILLA] Inválida');
-                await msg.reply(
-                    '⚠️ Solicitud incompleta o no explícita.\n' +
-                    'Por favor valida la plantilla y vuelve a enviar.'
-                );
-                return;
-            }
-
-            console.log('✅ [PLANTILLA] Válida');
-
-            const grupoIntermediario = RUTAS_INTERMEDIARIOS[origen];
-            console.log('🎯 [RUTEO] Enviando a:', grupoIntermediario);
-
-            const autorId = msg.author || msg.from;
-            const contacto = await client.getContactById(autorId);
-            const nombre = contacto.pushname || 'Técnico';
-
-            let enviado;
-
-            if (msg.hasMedia) {
-                const media = await msg.downloadMedia();
-                enviado = await client.sendMessage(grupoIntermediario, media, {
-                    caption: `${textoOriginal}\n\n_me ayudas con esto por favor_`
-                });
-            } else {
-                enviado = await client.sendMessage(
-                    grupoIntermediario,
-                    `${textoOriginal}\n\n_me ayudas con esto por favor_`
-                );
-            }
-
-            console.log('📤 [ENVIADO] ID:', enviado.id._serialized);
-        }
-
-    } catch (err) {
-        console.error('❌ [MSG ERROR]', err);
-    }
-});
 
 
 
@@ -332,6 +262,16 @@ require('./slaMonitor')(client, PATH_STORE);
 // ───────────────── START ─────────────────
 console.log('🟢 [START] Inicializando cliente WhatsApp');
 client.initialize();
+client.on('message', msg => {
+    console.log('🔥 MENSAJE DETECTADO 🔥');
+    console.log({
+        from: msg.from,
+        author: msg.author,
+        fromMe: msg.fromMe,
+        body: msg.body,
+        hasMedia: msg.hasMedia
+    });
+});
 
 // ───────────────── HEALTHCHECK ─────────────────
 setInterval(() => {
