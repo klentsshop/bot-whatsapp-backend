@@ -232,16 +232,24 @@ client.on('authenticated', () => {
 
 
 // ───────────────── MENSAJES ─────────────────
-client.on('message_create', (msg) => {
-    console.log('🧪 [TEST] message_create disparado');
-    console.log({
-        from: msg.from,
-        author: msg.author,
-        fromMe: msg.fromMe,
-        body: msg.body,
-        hasMedia: msg.hasMedia
-    });
-});
+client.on('message_create', async (msg) => {
+    if (msg.fromMe) return;
+
+    try {
+        const chat = await msg.getChat();
+        const origen = chat.id._serialized;
+
+        const textoOriginal = msg.hasMedia
+            ? (msg.caption || '')
+            : (msg.body || '');
+
+        const textoNormalizado = textoOriginal
+            .replace(/\u00A0/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        console.log('📩 [MSG] Recibido:', textoNormalizado);
+
         // ───────────── DESDE TÉCNICOS ─────────────
         if (RUTAS_INTERMEDIARIOS[origen]) {
             console.log('➡️ [RUTEO] Grupo técnico');
