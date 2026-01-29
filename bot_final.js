@@ -232,7 +232,8 @@ client.on('authenticated', () => {
 
 
 // ───────────────── MENSAJES ─────────────────
-client.on('message_create', async (msg) => {
+// ───────────── RECEPCIÓN DE MENSAJES REAL ─────────────
+client.on('message', async (msg) => {
     if (msg.fromMe) return;
 
     try {
@@ -248,7 +249,12 @@ client.on('message_create', async (msg) => {
             .replace(/\s+/g, ' ')
             .trim();
 
-        console.log('📩 [MSG] Recibido:', textoNormalizado);
+        console.log('📩 [MSG] Recibido:', {
+            grupo: origen,
+            texto: textoNormalizado,
+            hasMedia: msg.hasMedia,
+            author: msg.author
+        });
 
         // ───────────── DESDE TÉCNICOS ─────────────
         if (RUTAS_INTERMEDIARIOS[origen]) {
@@ -272,61 +278,21 @@ client.on('message_create', async (msg) => {
             const contacto = await client.getContactById(autorId);
             const nombre = contacto.pushname || 'Técnico';
 
-            const matchCta =
-                textoNormalizado.match(/CTA.*[:\s](\d{6,})/i) ||
-                textoNormalizado.match(/(\d{7,10})/);
-
-            const cta = matchCta ? (matchCta[1] || matchCta[0]) : null;
-
             let enviado;
 
             if (msg.hasMedia) {
                 const media = await msg.downloadMedia();
                 enviado = await client.sendMessage(grupoIntermediario, media, {
-                    caption: `${textoOriginal}\n\n_me ayudas con esto porfavor_`,
-                    sendSeen: false
+                    caption: `${textoOriginal}\n\n_me ayudas con esto por favor_`
                 });
             } else {
                 enviado = await client.sendMessage(
                     grupoIntermediario,
-                    `${textoOriginal}\n\n_me ayudas con esto porfavor_`,
-                    { sendSeen: false }
+                    `${textoOriginal}\n\n_me ayudas con esto por favor_`
                 );
             }
 
-            const datos = {
-                grupo: origen,
-                autor: autorId,
-                nombre,
-                cta,
-                grupoIntermediario,
-                timestampEnvio: Date.now(),
-                recordatoriosEnviados: 0,
-                atendido: false
-            };
-
-            store.porMensaje[enviado.id._serialized] = datos;
-            if (cta) store.porCta[cta] = datos;
-
-            guardarStore();
-            await responderTecnico(datos);
-        }
-
-        // ───────────── RESPUESTAS DESDE MILENIUM ─────────────
-        if (!RUTAS_INTERMEDIARIOS[origen]) {
-            const quoted = msg.hasQuotedMsg
-                ? await msg.getQuotedMessage()
-                : null;
-
-            const datos = resolverReferencia(
-                quoted?.id._serialized,
-                textoNormalizado
-            );
-
-            if (datos && datos.atendido === false) {
-                datos.atendido = true;
-                guardarStore();
-            }
+            console.log('📤 [ENVIADO] ID:', enviado.id._serialized);
         }
 
     } catch (err) {
