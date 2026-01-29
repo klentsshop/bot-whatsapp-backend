@@ -32,58 +32,53 @@ const PALABRAS_CLAVE = [
 
 // ───────────────── SERVIDOR WEB ─────────────────
 const PORT = 8080;
-http.createServer((req, res) => {
+http.createServer(async (req, res) => {
     if (req.url === '/qr') {
         res.writeHead(200, { 'Content-Type': 'text/html' });
 
         if (!qrlatest) {
             return res.end(`
                 <html>
-                <body style="font-family:sans-serif;text-align:center;margin-top:50px;">
+                <body style="font-family:sans-serif;text-align:center;margin-top:50px;background:#f4f4f4;">
                     <h2>⏳ Generando QR...</h2>
-                    <p>Refresca en unos segundos</p>
+                    <p>Si tarda más de 30 segundos, revisa los logs en la consola.</p>
+                    <script>setTimeout(() => location.reload(), 5000);</script>
                 </body>
                 </html>
             `);
         }
 
-        return res.end(`
-            <html>
-            <body style="
-                display:flex;
-                justify-content:center;
-                align-items:center;
-                height:100vh;
-                background:#25d366;
-                font-family:sans-serif;
-            ">
-                <div style="background:white;padding:20px;border-radius:10px;text-align:center;">
-                    <h2>📲 Escanea el QR del Bot</h2>
-                    <div id="qrcode"></div>
-                </div>
-
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-                <script>
-                    new QRCode(document.getElementById("qrcode"), "${qrlatest}");
-                </script>
-            </body>
-            </html>
-        `);
+        try {
+            const qrImage = await QRCode.toDataURL(qrlatest);
+            return res.end(`
+                <html>
+                <body style="display:flex;justify-content:center;align-items:center;height:100vh;background:#25d366;font-family:sans-serif;margin:0;">
+                    <div style="background:white;padding:30px;border-radius:20px;text-align:center;">
+                        <h2 style="color:#075e54;">📲 Escanea con WhatsApp</h2>
+                        <img src="${qrImage}" style="width:300px; height:300px;" />
+                        <p style="color:#666;">El bot se conectará automáticamente.</p>
+                    </div>
+                </body>
+                </html>
+            `);
+        } catch (err) {
+            return res.end("Error: " + err.message);
+        }
     }
 
     if (req.url === '/status') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({
-  ready: !!(client && client.info)
-}));
+            ready: !!(client && client.info),
+            connected_as: client?.info?.pushname || 'N/A'
+        }));
     }
 
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot WhatsApp activo');
+    res.end('Bot WhatsApp activo - Escanea en /qr');
 }).listen(PORT, () => {
-    console.log(`🌐 [HTTP] Servidor activo en http://157.230.174.130:${PORT}`);
+    console.log(`🌐 [HTTP] Servidor activo en puerto ${PORT}`);
 });
-
 // ───────────────── BASE PATH ─────────────────
 const BASE_PATH = '/data';
 if (!fs.existsSync(BASE_PATH)) fs.mkdirSync(BASE_PATH, { recursive: true });
@@ -99,7 +94,8 @@ client = new Client({
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage'
+      '--disable-dev-shm-usage',
+  '--disable-gpu'
     ]
   }
 });
@@ -228,7 +224,72 @@ client.on('authenticated', () => {
 
 // ───────────────── MENSAJES ─────────────────
 // ───────────── RECEPCIÓN DE MENSAJES REAL ─────────────
+client.on('message', async (msg) => {
+    if (msg.fromMe) return;
 
+    try {
+        const chat = await msg.getChat();
+        const origen = chat.id._serialized;
+
+        const textoOriginal = msg.hasMedia
+            ? (msg.caption || '')
+            : (msg.body || '');
+
+        const textoNormalizado = textoOriginal
+            .replace(/\u00A0/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        console.log('📩 [MSG] Recibido:', {
+            grupo: origen,
+            texto: textoNormalizado,
+            hasMedia: msg.hasMedia,
+            author: msg.author
+        });
+
+        // ───────────── DESDE TÉCNICOS ─────────────
+        if (RUTAS_INTERMEDIARIOS[origen]) {
+            console.log('➡️ [RUTEO] Grupo técnico');
+
+            if (!detectarPlantilla(textoNormalizado, msg)) {
+                console.log('❌ [PLANTILLA] Inválida');
+                await msg.reply(
+                    '⚠️ Solicitud incompleta o no explícita.\n' +
+                    'Por favor valida la plantilla y vuelve a enviar.'
+                );
+                return;
+            }
+
+            console.log('✅ [PLANTILLA] Válida');
+
+            const grupoIntermediario = RUTAS_INTERMEDIARIOS[origen];
+            console.log('🎯 [RUTEO] Enviando a:', grupoIntermediario);
+
+            const autorId = msg.author || msg.from;
+            const contacto = await client.getContactById(autorId);
+            const nombre = contacto.pushname || 'Técnico';
+
+            let enviado;
+
+            if (msg.hasMedia) {
+                const media = await msg.downloadMedia();
+                enviado = await client.sendMessage(grupoIntermediario, media, {
+                    caption: `${textoOriginal}\n\n_me ayudas con esto por favor_`
+                });
+            } else {
+                enviado = await client.sendMessage(
+                    grupoIntermediario,
+                    `${textoOriginal}\n\n_me ayudas con esto por favor_`
+                );
+            }
+
+            console.log('📤 [ENVIADO] ID:', enviado.id._serialized);
+        }
+
+    } catch (err) {
+        console.error('❌ [MSG ERROR]', err);
+    }
+});
 
 
 
@@ -262,16 +323,6 @@ require('./slaMonitor')(client, PATH_STORE);
 // ───────────────── START ─────────────────
 console.log('🟢 [START] Inicializando cliente WhatsApp');
 client.initialize();
-client.on('message', msg => {
-    console.log('🔥 MENSAJE DETECTADO 🔥');
-    console.log({
-        from: msg.from,
-        author: msg.author,
-        fromMe: msg.fromMe,
-        body: msg.body,
-        hasMedia: msg.hasMedia
-    });
-});
 
 // ───────────────── HEALTHCHECK ─────────────────
 setInterval(() => {
