@@ -3,6 +3,7 @@ const http = require('http');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const fs = require('fs');
 const path = require('path');
+let client;
 
 console.log('🟢 [BOOT] Archivo iniciado');
 
@@ -72,7 +73,9 @@ http.createServer((req, res) => {
 
     if (req.url === '/status') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ ready: !!client.info }));
+        return res.end(JSON.stringify({
+  ready: !!(client && client.info)
+}));
     }
 
     res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -90,7 +93,7 @@ console.log('📁 [PATH] Store:', PATH_STORE);
 // ───────────────── CLIENTE ─────────────────
 console.log('🤖 [CLIENT] Creando cliente WhatsApp');
 
-const client = new Client({
+client = new Client({
   authStrategy: new LocalAuth({
     dataPath: '/data/session',
     clientId: 'milenium-bot'
@@ -228,7 +231,7 @@ client.on('authenticated', () => {
 
 
 // ───────────────── MENSAJES ─────────────────
-client.on('message_create', async (msg) => {
+client.on('message', async (msg) => {
     console.log('📩 [MSG] Recibido');
 
     // ❌ Ignorar mensajes enviados por el bot (pero NO quoted replies)
