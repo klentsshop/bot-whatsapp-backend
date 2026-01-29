@@ -10,7 +10,7 @@ console.log('🟢 [BOOT] Archivo iniciado');
 const ID_TECNICOS_LAB = '120363424034037857@g.us';
 const ID_TABASCO_LAB = '120363421788879642@g.us';
 
-let lastQrDataUrl = null;
+let qrlatest = null;
 
 // ── RUTEO DEFINITIVO DE GRUPOS ──
 const RUTAS_INTERMEDIARIOS = {
@@ -33,44 +33,60 @@ const PALABRAS_CLAVE = [
 const PORT = 8080;
 http.createServer((req, res) => {
     if (req.url === '/qr') {
-        if (!lastQrDataUrl) {
-            res.writeHead(404, { 'Content-Type': 'text/plain' });
-            return res.end('QR no disponible aún');
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+
+        if (!qrlatest) {
+            return res.end(`
+                <html>
+                <body style="font-family:sans-serif;text-align:center;margin-top:50px;">
+                    <h2>⏳ Generando QR...</h2>
+                    <p>Refresca en unos segundos</p>
+                </body>
+                </html>
+            `);
         }
 
-        const img = lastQrDataUrl.replace(/^data:image\/png;base64,/, '');
-        const buffer = Buffer.from(img, 'base64');
+        return res.end(`
+            <html>
+            <body style="
+                display:flex;
+                justify-content:center;
+                align-items:center;
+                height:100vh;
+                background:#25d366;
+                font-family:sans-serif;
+            ">
+                <div style="background:white;padding:20px;border-radius:10px;text-align:center;">
+                    <h2>📲 Escanea el QR del Bot</h2>
+                    <div id="qrcode"></div>
+                </div>
 
-        res.writeHead(200, {
-            'Content-Type': 'image/png',
-            'Content-Length': buffer.length
-        });
-        return res.end(buffer);
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+                <script>
+                    new QRCode(document.getElementById("qrcode"), "${qrlatest}");
+                </script>
+            </body>
+            </html>
+        `);
     }
 
     if (req.url === '/status') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({
-            ready: !!client.info
-        }));
+        return res.end(JSON.stringify({ ready: !!client.info }));
     }
 
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Bot WhatsApp activo');
 }).listen(PORT, () => {
-    console.log(`🌐 [HTTP] Servidor web activo en puerto ${PORT}`);
+    console.log(`🌐 [HTTP] Servidor activo en http://157.230.174.130:${PORT}`);
 });
 
-// ───────────────── BASE PATH (CORREGIDO PARA RAILWAY) ─────────────────
+// ───────────────── BASE PATH ─────────────────
 const BASE_PATH = '/data';
-
-if (!fs.existsSync(BASE_PATH)) {
-    fs.mkdirSync(BASE_PATH, { recursive: true });
-}
+if (!fs.existsSync(BASE_PATH)) fs.mkdirSync(BASE_PATH, { recursive: true });
 
 const PATH_STORE = path.join(BASE_PATH, 'mensajes_store.json');
 console.log('📁 [PATH] Store:', PATH_STORE);
-
 // ───────────────── CLIENTE ─────────────────
 console.log('🤖 [CLIENT] Creando cliente WhatsApp');
 
@@ -86,8 +102,7 @@ const client = new Client({
     '--no-sandbox',
     '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
-    '--disable-gpu',
-    '--single-process'
+    '--disable-gpu'
   ]
 }
 });
@@ -192,14 +207,18 @@ async function responderTecnico(datos) {
 }
 
 // ───────────────── QR Y READY ─────────────────
-client.on('qr', async (qr) => {
-    lastQrDataUrl = await QRCode.toDataURL(qr);
+client.on('qr', (qr) => {
+    qrlatest = qr;
     console.log('📲 [QR] Generado');
+    console.log('👉 Abre en el navegador: http://157.230.174.130:8080/qr');
 });
 
 client.on('ready', () => {
     console.log('🚀 BOT FINAL - LISTO PARA PRODUCCIÓN');
 });
+
+
+
 
 // ───────────────── MENSAJES ─────────────────
 client.on('message_create', async (msg) => {
