@@ -1,6 +1,3 @@
-client.on('loading_screen', (percent, message) => {
-    console.log(`⏳ [LOADING] ${percent}% ${message}`);
-});
 const QRCode = require('qrcode');
 const http = require('http');
 const { Client, LocalAuth } = require('whatsapp-web.js');
@@ -100,7 +97,7 @@ const client = new Client({
   }),
   puppeteer: {
     executablePath: '/usr/bin/google-chrome',
-    headless: 'new',
+    headless: true,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -110,6 +107,9 @@ const client = new Client({
       '--no-zygote'
     ]
   }
+});
+client.on('loading_screen', (percent, message) => {
+    console.log(`⏳ [LOADING] ${percent}% ${message}`);
 });
 // ───────────────── STORE PERSISTENTE ─────────────────
 let store = { porMensaje: {}, porCta: {} };
@@ -228,11 +228,11 @@ client.on('authenticated', () => {
 
 
 // ───────────────── MENSAJES ─────────────────
-client.on('message', async (msg) => {
+client.on('message_create', async (msg) => {
     console.log('📩 [MSG] Recibido');
 
     // ❌ Ignorar mensajes enviados por el bot (pero NO quoted replies)
-    if (msg.fromMe && !msg.hasQuotedMsg) return;
+   if (msg.fromMe) return;
 
     try {
         const chat = await msg.getChat();
