@@ -1,3 +1,6 @@
+client.on('loading_screen', (percent, message) => {
+    console.log(`⏳ [LOADING] ${percent}% ${message}`);
+});
 const QRCode = require('qrcode');
 const http = require('http');
 const { Client, LocalAuth } = require('whatsapp-web.js');
@@ -219,11 +222,13 @@ client.on('ready', () => {
     console.log('🚀 BOT FINAL - LISTO PARA PRODUCCIÓN');
 });
 
-
+client.on('authenticated', () => {
+    console.log('🔐 [AUTH] Sesión autenticada correctamente');
+});
 
 
 // ───────────────── MENSAJES ─────────────────
-client.on('message_create', async (msg) => {
+client.on('message', async (msg) => {
     console.log('📩 [MSG] Recibido');
 
     // ❌ Ignorar mensajes enviados por el bot (pero NO quoted replies)
