@@ -221,13 +221,17 @@ client.on('qr', (qr) => {
     console.log('👉 Abre en el navegador: http://157.230.174.130:8080/qr');
 });
 
-client.on('ready', () => {
-    console.log('🚀 BOT FINAL - LISTO PARA PRODUCCIÓN');
-});
-
 client.on('authenticated', () => {
     console.log('🔐 [AUTH] Sesión autenticada correctamente');
+
+    setTimeout(() => {
+        if (client.info) {
+            console.log('🚀 BOT FINAL - LISTO PARA PRODUCCIÓN');
+            console.log(`🤖 Conectado como: ${client.info.pushname}`);
+        }
+    }, 2000);
 });
+
 
 
 // ───────────────── MENSAJES ─────────────────
